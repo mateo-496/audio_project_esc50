@@ -47,5 +47,4 @@ Output: 50 classes
 - **Batch Size**: 100 TF-patches
 - **L2 Regularization**: 0.001 (on classifier layers only)
 - **Dropout**: 0.5 (on classifier layers)
-- **Gradient Clipping**: max_norm=1.0
 - **Epochs**: 100
