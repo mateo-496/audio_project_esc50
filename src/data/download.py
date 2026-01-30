@@ -4,22 +4,8 @@ import io
 import os
 import shutil
 
-repo_url = "https://github.com/karolpiczak/ESC-50/archive/refs/heads/master.zip"
-repo_dst_dir = "data"
-audio_dst_dir = os.path.join(repo_dst_dir, "audio", "0")
 
-paths_to_delete = [
-    ".gitignore",
-    "esc50.gif",
-    "LICENSE",
-    "pytest.ini",
-    "README.md",
-    "requirements.txt",
-    "tests",
-    "meta",
-    ".github",
-    ".circleci"
-]
+from src.config.config import repo_url, repo_dst_dir, audio_dst_dir, paths_to_delete
 
 def download_and_extract(url, dst_dir):
     os.makedirs(dst_dir, exist_ok=True)

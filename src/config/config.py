@@ -23,3 +23,21 @@ esc50_labels = [
     'helicopter', 'chainsaw', 'siren', 'car_horn', 'engine',
     'train', 'church_bells', 'airplane', 'fireworks', 'hand_saw'
 ]
+
+# download.py
+repo_url = "https://github.com/karolpiczak/ESC-50/archive/refs/heads/master.zip"
+repo_dst_dir = "data"
+audio_dst_dir = os.path.join(repo_dst_dir, "audio", "0")
+
+paths_to_delete = [
+    ".gitignore",
+    "esc50.gif",
+    "LICENSE",
+    "pytest.ini",
+    "README.md",
+    "requirements.txt",
+    "tests",
+    "meta",
+    ".github",
+    ".circleci"
+]

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 
-cnn_input_length = 128
+from src.config.config import cnn_input_length
 
 class SpectrogramDataset(Dataset):
     def __init__(self, spectrograms, labels, patch_length=cnn_input_length, mode='train'):
