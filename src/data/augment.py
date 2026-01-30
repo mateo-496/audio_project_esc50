@@ -5,16 +5,7 @@ import numpy as np
 import os
 import soundfile as sf
 
-sample_rate = 44100
-
-parameters = {
-    "n_bands"  : 128,
-    "n_mels" : 128,
-    "frame_size" : 1024,
-    "hop_size": 1024,
-    "sample_rate": sample_rate,
-    "fft_size": 8192,
-}
+from src.config.config import sample_rate, parameters, cnn_input_length
 
 def data_treatment(
     audio_path, 
