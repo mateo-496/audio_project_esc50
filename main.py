@@ -33,7 +33,6 @@ def main():
     preprocess_parser = subparsers.add_parser('preprocess', help='Preprocess audio dataset')
     preprocess_parser.add_argument('--input-dir', type=str, default="data/audio/0", help='Input audio directory')
     preprocess_parser.add_argument('--output-dir', type=str, default="data/audio", help='Output directory for preprocessed data')
-    preprocess_parser.add_argument('--augment', action='store_true', help='Create augmented datasets')
     preprocess_parser.set_defaults(func=cmd_preprocess)
 
     train_parser = subparsers.add_parser('train', help='Train model')
@@ -47,7 +46,6 @@ def main():
     train_parser.add_argument('--sample-fraction', type=float, default=1/8, help='Fraction of samples per epoch (default: 1/8)')
     train_parser.add_argument('--checkpoint-dir', type=str, default='models/checkpoints', help='Checkpoint directory')
     train_parser.add_argument('--save-every', type=int, default=1, help='Save checkpoint every N epochs')
-    train_parser.add_argument('--augment', action='store_true', help='Use data augmentation')
     train_parser.set_defaults(func=cmd_train)
 
     resume_parser = subparsers.add_parser('resume', help='Resume training from checkpoint')
@@ -69,8 +67,6 @@ def main():
     predict_parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='Device (default: auto)')
     predict_parser.set_defaults(func=cmd_predict)
 
-
-
     args = parser.parse_args()
     args.func(args)
 
@@ -82,15 +78,14 @@ def cmd_download(args):
     print("Data downloaded and cleaned.")
 
 def cmd_augment(args):
+    print("Augmenting audio data...")
     create_augmented_datasets(args.input_dir, args.output_dir)
+
+    print(f"Saved augmented data to {args.output_dir}")
 
 def cmd_preprocess(args):
     print("Processing audio data...")
-    
-    if args.augment:
-        print("Creating augmented datasets...")
-        create_augmented_datasets(args.input_dir, args.output_dir)
-    
+       
     print("Creating log-mel spectrograms...")
     X, y = create_log_mel(args.input_dir, args.output_dir)
     
