@@ -7,7 +7,7 @@ import os
 import sys
 
 from src.models.cnn import CNN
-from src.data.augment import data_treatment
+from src.data.augment import data_treatment_testing
 from src.config.config import sample_rate, parameters, cnn_input_length, esc50_labels
 
 def predict_with_overlapping_patches(model, spectrogram, patch_length=cnn_input_length, hop=1, batch_size=100, device="cuda"):
@@ -88,7 +88,7 @@ def predict_file(model, audio_file, device="cpu", top_k=5):
         "sample_rate": sample_rate,
         "fft_size": 8192,
     }
-    spectrogram, label = data_treatment(audio_file, **parameters)
+    spectrogram = data_treatment_testing(audio_file, **parameters)
 
     spectrogram = np.array(spectrogram)
 
@@ -101,7 +101,7 @@ def predict_file(model, audio_file, device="cpu", top_k=5):
         model, spectrogram, patch_length=128, hop=1, batch_size=100, device=device, top_k=top_k
     )
 
-    return predicted_class, label, top_probs, top_indices
+    return predicted_class, top_probs, top_indices
 
 def load_model(model_path, device='cpu'):
     print(f"Loading model from {model_path}...")
@@ -173,12 +173,10 @@ def main():
         sys.exit(1)
     
     try:
-        predicted_class, label, top_probs, top_indices = predict_file(
+        predicted_class, top_probs, top_indices = predict_file(
             model, args.audio_file, device=args.device, top_k=args.top_k
         )
-        
-        label = int(label[0])
-        
+                
         print("\n" + "=" * 60)
         print(f"Top {args.top_k} Predictions:")
         print("=" * 60)
@@ -186,30 +184,11 @@ def main():
         for i, (prob, idx) in enumerate(zip(top_probs, top_indices)):
             class_name = esc50_labels[idx]
             marker = "★" if idx == predicted_class else " "
-            marker = "✓" if idx == label else " "
             print(f"{marker} {i+1}. {class_name:20s} - {prob*100:6.2f}%")
         
-        if predicted_class == label:
-            print("=" * 60)
-            print(f"✓ Predicted class is the Correct class: {esc50_labels[predicted_class]}")
-        else:
-            if label in top_indices:
-                print("=" * 60)
-                label_rank = np.where(top_indices == label)[0][0] + 1  # +1 for 1-based indexing
-                label_prob = top_probs[label_rank - 1]
-                print(f"✖ Predicted class: {esc50_labels[predicted_class]}, is incorrect")
-                print(f"✓ Correct class: {esc50_labels[label]}, is at rank {label_rank} ({label_prob*100:.2f}%)")
-                
-            else:
-                print("=" * 60)
-                print(f"✖ Predicted class: {esc50_labels[predicted_class]}")
-                print(f"✖ Correct class: {esc50_labels[label]}")        
+      
     except Exception as e:
         print(f"\nError during prediction: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
-
-if __name__ == '__main__':
-    main()

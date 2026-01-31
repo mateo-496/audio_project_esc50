@@ -7,7 +7,7 @@ import soundfile as sf
 
 from src.config.config import sample_rate, parameters, cnn_input_length
 
-def data_treatment(
+def data_treatment_training(
     audio_path, 
     n_bands, n_mels, frame_size, hop_size, sample_rate, fft_size
     ):
@@ -54,6 +54,50 @@ def data_treatment(
         
         log_mel_spectrograms.append(mel_spectrogram_db)
     return log_mel_spectrograms, np.array(labels)
+
+def data_treatment_testing(
+    audio_path, 
+    n_bands, n_mels, frame_size, hop_size, sample_rate, fft_size
+    ):
+    labels = []
+    log_mel_spectrograms = []
+    filenames = os.listdir(audio_path)
+
+    for filename in tqdm.tqdm(filenames, desc="Processing audio files"):
+
+        file_path = os.path.join(audio_path, filename)
+
+        window = es.Windowing(type="hann")
+        spectrum = es.Spectrum(size=fft_size)
+        mel = es.MelBands(
+            numberBands=n_bands, 
+            inputSize=fft_size//2 + 1, 
+            sampleRate=sample_rate,
+            lowFrequencyBound=0,
+            highFrequencyBound=sample_rate / 2
+        )
+
+        loader = es.MonoLoader(filename=file_path)
+        audio = loader()
+
+        frames = es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size)
+        log_mel_spectrogram = []
+        for frame in frames:
+            frame_padded = np.pad(frame, (0, fft_size - len(frame)), mode='constant')
+            windowed_frame = window(frame_padded)
+            spec = spectrum(windowed_frame)
+            mel_bands = mel(spec)
+            log_mel_spectrogram.append(mel_bands)
+
+        log_mel_spectrogram = np.array(log_mel_spectrogram)
+        
+        mel_spectrogram_db = 10 * np.log10(log_mel_spectrogram + 1e-10)
+        max_db = mel_spectrogram_db.max()
+        mel_spectrogram_db = mel_spectrogram_db - max_db
+        
+        log_mel_spectrograms.append(mel_spectrogram_db)
+        
+    return log_mel_spectrograms
 
 def pad(audio, target_seconds, sample_rate):
     target_len = int(sample_rate * target_seconds)
@@ -155,7 +199,7 @@ def create_log_mel(input_path, output_path):
     X, y = [], []
 
     for directory in directories:
-        log_mels, labels = data_treatment(os.path.join(input_path, directory), **parameters)
+        log_mels, labels = data_treatment_training(os.path.join(input_path, directory), **parameters)
         X.extend(log_mels)
         y.extend(labels)
     

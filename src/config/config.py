@@ -1,3 +1,5 @@
+import os
+
 parameters = {
     "n_bands"  : 128,
     "n_mels" : 128,
