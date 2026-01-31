@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import argparse
 from sklearn.model_selection import train_test_split
 
-from src.data.donwload import download_clean
+from src.data.download import download_clean
 from src.data.augment import create_augmented_datasets, create_log_mel, data_treatment_testing
 from src.models.cnn import CNN
 from src.models.train import train_cnn
 from src.models.predict import predict_with_overlapping_patches, predict_top_k, predict_file, load_model
-from config.config import sample_rate, cnn_input_length, esc50_labels
+from src.config.config import sample_rate, cnn_input_length, esc50_labels
 
 def main():
     parser = argparse.ArgumentParser(
@@ -22,12 +22,17 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     subparsers.required = True
 
-    download_parser = subparser.add_parser('download', help='Download ESC50 dataset')
-    download_paerser.set_defaults(func=cmd_download)
+    download_parser = subparsers.add_parser('download', help='Download ESC50 dataset')
+    download_parser.set_defaults(func=cmd_download)
+
+    augment_parser = subparsers.add_parser('augment', help='Create augmented datasets')
+    augment_parser.add_argument('--input-dir', type=str, default="data/audio/0", help="Input audio directory")
+    augment_parser.add_argument('--output-dir', type=str, default="data/audio", help='Output directory for augmented datasets')
+    augment_parser.set_defaults(func=cmd_augment)
 
     preprocess_parser = subparsers.add_parser('preprocess', help='Preprocess audio dataset')
-    preprocess_parser.add_argument('--input-dir', type=str, required=True, help='Input audio directory')
-    preprocess_parser.add_argument('--output-dir', type=str, required=True, help='Output directory for preprocessed data')
+    preprocess_parser.add_argument('--input-dir', type=str, default="data/audio/0", help='Input audio directory')
+    preprocess_parser.add_argument('--output-dir', type=str, default="data/audio", help='Output directory for preprocessed data')
     preprocess_parser.add_argument('--augment', action='store_true', help='Create augmented datasets')
     preprocess_parser.set_defaults(func=cmd_preprocess)
 
@@ -75,6 +80,9 @@ def cmd_download(args):
     download_clean()
 
     print("Data downloaded and cleaned.")
+
+def cmd_augment(args):
+    create_augmented_datasets(args.input_dir, args.output_dir)
 
 def cmd_preprocess(args):
     print("Processing audio data...")
