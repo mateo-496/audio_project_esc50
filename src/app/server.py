@@ -3,6 +3,7 @@ import torch
 import tempfile
 import os 
 
+from pydub import AudioSegment
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,10 +41,14 @@ async def predict_top_k(file: UploadFile = File(...), k: int = 5):
         raise HTTPException(status_code=503, detail="Model not loaded")
     
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
+
+        tmp_wav_path = tempfile.mktemp(suffix=".wav")
+        audio = AudioSegment.from_file(tmp_path)
+        audio.export(tmp_wav_path, format="wav")
 
         predicted_class, top_probs, top_indices = predict_file(
             model, tmp_path, device=device, top_k=k
@@ -65,7 +70,7 @@ async def predict_top_k(file: UploadFile = File(...), k: int = 5):
 
 uvicorn.run(
     app,
-    host="0.0.0.0",
+    host="localhost",
     port=8000,
     log_level="info"
 )
