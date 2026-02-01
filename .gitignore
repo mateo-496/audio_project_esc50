@@ -27,3 +27,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+.dockerignore
+Dockerfile
+requirements.txt
