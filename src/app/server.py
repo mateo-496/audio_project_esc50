@@ -11,10 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from src.models.predict import load_model, predict_file
 from src.config.config import esc50_labels
 
+model = None
+device = None
+
 app = FastAPI(
     title="ESC50 Audio Classifier API",
     description="API for environmental sound classification",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 @app.on_event("startup")
@@ -68,9 +71,9 @@ async def predict_top_k(file: UploadFile = File(...), k: int = 5):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-uvicorn.run(
-    app,
-    host="localhost",
-    port=8000,
-    log_level="info"
-)
+# uvicorn.run(
+#     app,
+#     host="localhost",
+#     port=8000,
+#     log_level="info"
+# )
