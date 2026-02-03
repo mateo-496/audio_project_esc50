@@ -1,5 +1,4 @@
 import tqdm
-import essentia.standard as es
 import librosa
 import numpy as np
 import os
@@ -10,89 +9,63 @@ from src.config.config import sample_rate, parameters, cnn_input_length
 def data_treatment_training(
     audio_path, 
     n_bands, n_mels, frame_size, hop_size, sample_rate, fft_size
-    ):
+):
     labels = []
     log_mel_spectrograms = []
     filenames = os.listdir(audio_path)
-
+    
     for filename in tqdm.tqdm(filenames, desc="Processing audio files"):
-
         filename_splitted = filename.split("-")
         label = filename_splitted[-1].split(".")[0]
         label = label.split("_")[0]
         labels.append(int(label))
-
-        file_path = os.path.join(audio_path, filename)
-
-        window = es.Windowing(type="hann")
-        spectrum = es.Spectrum(size=fft_size)
-        mel = es.MelBands(
-            numberBands=n_bands, 
-            inputSize=fft_size//2 + 1, 
-            sampleRate=sample_rate,
-            lowFrequencyBound=0,
-            highFrequencyBound=sample_rate / 2
-        )
-
-        loader = es.MonoLoader(filename=file_path)
-        audio = loader()
-
-        frames = es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size)
-        log_mel_spectrogram = []
-        for frame in frames:
-            frame_padded = np.pad(frame, (0, fft_size - len(frame)), mode='constant')
-            windowed_frame = window(frame_padded)
-            spec = spectrum(windowed_frame)
-            mel_bands = mel(spec)
-            log_mel_spectrogram.append(mel_bands)
-
-        log_mel_spectrogram = np.array(log_mel_spectrogram)
         
-        mel_spectrogram_db = 10 * np.log10(log_mel_spectrogram + 1e-10)
+        file_path = os.path.join(audio_path, filename)
+        audio, sr = librosa.load(file_path, sr=sample_rate)
+        
+        mel_spec = librosa.feature.melspectrogram(
+            y=audio,
+            sr=sr,
+            n_fft=fft_size,
+            hop_length=hop_size,
+            win_length=frame_size,
+            n_mels=n_bands,
+            fmin=0,
+            fmax=sample_rate / 2,
+            window='hann'
+        )
+        
+        mel_spectrogram_db = 10 * np.log10(mel_spec.T + 1e-10)
         max_db = mel_spectrogram_db.max()
         mel_spectrogram_db = mel_spectrogram_db - max_db
         
         log_mel_spectrograms.append(mel_spectrogram_db)
+    
     return log_mel_spectrograms, np.array(labels)
 
 def data_treatment_testing(
     file_path, 
     n_bands, n_mels, frame_size, hop_size, sample_rate, fft_size
     ):
-    labels = []
-    log_mel_spectrograms = []
-
-    window = es.Windowing(type="hann")
-    spectrum = es.Spectrum(size=fft_size)
-    mel = es.MelBands(
-        numberBands=n_bands, 
-        inputSize=fft_size//2 + 1, 
-        sampleRate=sample_rate,
-        lowFrequencyBound=0,
-        highFrequencyBound=sample_rate / 2
+    audio, sr = librosa.load(file_path, sr=sample_rate)
+    
+    mel_spec = librosa.feature.melspectrogram(
+        y=audio,
+        sr=sr,
+        n_fft=fft_size,
+        hop_length=hop_size,
+        win_length=frame_size,
+        n_mels=n_bands,
+        fmin=0,
+        fmax=sample_rate / 2,
+        window='hann'
     )
-
-    loader = es.MonoLoader(filename=file_path)
-    audio = loader()
-
-    frames = es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size)
-    log_mel_spectrogram = []
-    for frame in frames:
-        frame_padded = np.pad(frame, (0, fft_size - len(frame)), mode='constant')
-        windowed_frame = window(frame_padded)
-        spec = spectrum(windowed_frame)
-        mel_bands = mel(spec)
-        log_mel_spectrogram.append(mel_bands)
-
-    log_mel_spectrogram = np.array(log_mel_spectrogram)
-        
-    mel_spectrogram_db = 10 * np.log10(log_mel_spectrogram + 1e-10)
+    
+    mel_spectrogram_db = 10 * np.log10(mel_spec.T + 1e-10)
     max_db = mel_spectrogram_db.max()
     mel_spectrogram_db = mel_spectrogram_db - max_db
-        
-    log_mel_spectrograms.append(mel_spectrogram_db)
-        
-    return log_mel_spectrograms
+    
+    return [mel_spectrogram_db]
 
 def pad(audio, target_seconds, sample_rate):
     target_len = int(sample_rate * target_seconds)

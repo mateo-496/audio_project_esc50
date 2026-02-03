@@ -11,8 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from src.models.predict import load_model, predict_file
 from src.config.config import esc50_labels
 
-model = None
-device = None
 
 app = FastAPI(
     title="ESC50 Audio Classifier API",
@@ -20,13 +18,13 @@ app = FastAPI(
     version="1.0.0",
 )
 
-@app.on_event("startup")
-async def startup_event():
-    global model
-    global device
-    model_path="models/saved/model30012026_74valacc.pt"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = load_model(model_path, device)
+
+
+model = None
+device = None
+model_path="models/saved/model30012026_74valacc.pt"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = load_model(model_path, device)
 
 @app.get("/")
 async def root():

@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import essentia.standard as es 
 import argparse
 import os
 import sys
