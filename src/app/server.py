@@ -71,7 +71,7 @@ async def predict_top_k(file: UploadFile = File(...), k: int = 5):
 
 # uvicorn.run(
 #     app,
-#     host="localhost",
+#     host="0.0.0.0",
 #     port=8000,
 #     log_level="info"
 # )
