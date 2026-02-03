@@ -9,7 +9,7 @@ from src.config.config import sample_rate, parameters, cnn_input_length
 def data_treatment_training(
     audio_path, 
     n_bands, n_mels, frame_size, hop_size, sample_rate, fft_size
-):
+    ):
     labels = []
     log_mel_spectrograms = []
     filenames = os.listdir(audio_path)
@@ -85,8 +85,8 @@ def pitch_shift_augmentation(file_path, sample_rate, semitones):
     return librosa.effects.pitch_shift(audio.astype(np.float32), sr=sample_rate, n_steps=semitones)
 
 def drc_augmentation(file_path, sample_rate, compression):
-    if compression == "music_standard":   threshold_db=-20; ratio=2.0; attack_ms=5;  release_ms=50
-    elif compression == "film_standard":  threshold_db=-25; ratio=4.0; attack_ms=10; release_ms= 100
+    if compression == "musicstandard":   threshold_db=-20; ratio=2.0; attack_ms=5;  release_ms=50
+    elif compression == "filmstandard":  threshold_db=-25; ratio=4.0; attack_ms=10; release_ms= 100
     elif compression == "speech":         threshold_db=-18; ratio=3.0; attack_ms=2;  release_ms= 40
     elif compression == "radio":          threshold_db=-15; ratio=3.5; attack_ms=1;  release_ms= 200
 
@@ -123,31 +123,23 @@ def augment_dataset(audio_path, output_path, probability_list):
 
     for filename in tqdm.tqdm(filenames, desc="Processing audio files"):        
         
-        augmentations = []
         audio, _ = librosa.load(os.path.join(audio_path, filename), sr=sample_rate)
         # TS
         if np.random.rand() > p1:
             stretch_rates = [0.81, 0.93, 1.07, 1.23]
             stretch_rate = np.random.choice(stretch_rates)
             audio = time_stretch_augmentation(os.path.join(audio_path, filename), sample_rate, stretch_rate)
-            augmentations.append(f"TS{stretch_rate}")
         # PS 
         if np.random.rand() > p2:
             semitones = [-3.5, -2.5, -2, -1, 1, 2.5, 3, 3.5]
             semitone = np.random.choice(semitones)
             audio = pitch_shift_augmentation(os.path.join(audio_path, filename), sample_rate, semitone)
-            augmentations.append(f"PS{semitone}")
-
         # DRC
         if np.random.rand() > p3:
-            compressions = ["radio", "film_standard", "music_standard", "speech"]
+            compressions = ["radio", "filmstandard", "musicstandard", "speech"]
             compression = np.random.choice(compressions)
             audio = drc_augmentation(os.path.join(audio_path, filename), sample_rate, compression)
-            augmentations.append(f"DRC{compression}")
 
-        for aug in augmentations:
-            filename_splitted = filename.split(".")
-            filename = filename_splitted[0] + f"_{aug}." + filename_splitted[-1]
         sf.write(os.path.join(output_path, filename), audio, 44100)
 
 def create_augmented_datasets(input_path, output_path):
@@ -181,10 +173,3 @@ def create_log_mel(input_path, output_path):
     np.save(os.path.join(output_path, "X.npy"), X_array, allow_pickle=True)
     np.save(os.path.join(output_path, 'y.npy'), y)
     return X, y
-
-if __name__ == "__main__":
-    input_path = "data/audio/0"
-    output_base_path = "data/audio"
-
-    create_augmented_datasets(input_path, output_base_path)
-

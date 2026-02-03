@@ -2,6 +2,7 @@ import os
 import torch
 import tqdm
 import json
+import numpy as np
 from torch.utils.data import DataLoader
 
 from src.models.predict import predict_with_overlapping_patches
@@ -11,16 +12,17 @@ def train_cnn(
     model,
     X_train, y_train,
     X_val, y_val,
+    fold_num,
     epochs=50,
     batch_size=100,
-    lr=0.01,
+    lr=0.001,
     device="cuda",
     use_all_patches=True,
     samples_per_epoch_fraction=1/8,
     checkpoint_dir="models/checkpoints",
     save_every_n_epoch=1,
     resume_from=None
-):
+    ):
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     model.to(device)
@@ -36,6 +38,14 @@ def train_cnn(
         print("Using RANDOM PATCHES method (simpler)")
         print(f"{'='*60}")
     
+    # unique, counts = np.unique(y_train, return_counts=True)
+    # print(f"\nClass distribution in y_train:")
+    # print(f"Classes: {len(unique)}")
+    # print(f"Min samples: {counts.min()}, Max samples: {counts.max()}, Mean: {counts.mean():.1f}")
+    # print(f"\nPer-class counts:")
+    # for cls, count in zip(unique, counts):
+    #     print(f"Class {cls}: {count}")
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -54,10 +64,10 @@ def train_cnn(
     print(f"{'='*60}\n")
     
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD([
+    optimizer = torch.optim.AdamW([
         {'params': model.features.parameters(), 'weight_decay': 0.0},
         {'params': model.classifier.parameters(), 'weight_decay': 0.001}
-    ], lr=lr, momentum=0.9)
+    ], lr=lr)#, momentum=0.9)
     
 
     start_epoch = 0
@@ -145,7 +155,7 @@ def train_cnn(
             torch.save(model.state_dict(), "best_model.pt")
         
         print(
-            f"Epoch {epoch+1}/{epochs} | "
+            f"Fold {fold_num} | Epoch {epoch+1}/{epochs} | "
             f"Train loss: {train_loss:.4f}, Train acc: {train_acc:.4f} | "
             f"Val acc: {val_acc:.4f} (best: {best_val_acc:.4f})"
         )
@@ -200,3 +210,87 @@ def train_cnn(
     print(f"\nTraining complete! Final model saved to {final_model_path}")
 
     return best_val_acc
+
+
+def train_k_fold_cnn(
+    model_class,
+    X, y,
+    epochs=50,
+    batch_size=100,
+    lr=0.01,
+    k_fold=5,
+    device="cuda",
+    use_all_patches=True,
+    samples_per_epoch_fraction=1/8,
+    checkpoint_dir="models/checkpoints",
+    save_every_n_epoch=1
+    ):
+
+    X = np.array(X)
+    y = np.array(y)
+    n_samples = len(y)
+    indices = np.arange(n_samples)
+    np.random.shuffle(indices)
+
+    fold_sizes = (n_samples // 5) * np.ones(5, dtype=int)
+    fold_sizes[:n_samples % 5] += 1
+    current = 0
+
+    fold_accuracies = []
+
+    for fold_num, fold_size in enumerate(fold_sizes, 1):
+        start, stop = current, current + fold_size
+        val_idx = indices[start:stop]
+        train_idx = np.concatenate([indices[:start], indices[stop:]])
+        current = stop
+
+        X_train, y_train = X[train_idx].tolist(), y[train_idx]
+        X_val, y_val = X[val_idx].tolist(), y[val_idx]
+
+        print(f"\n{'='*80}")
+        print(f"FOLD {fold_num}/5 | Train: {len(X_train)}, Val: {len(X_val)}")
+        print(f"{'='*80}\n")
+
+        model = model_class()
+
+        best_acc = train_cnn(
+            model=model,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            fold_num=fold_num,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=lr,
+            device=device,
+            use_all_patches=use_all_patches,
+            samples_per_epoch_fraction=samples_per_epoch_fraction,
+            checkpoint_dir=os.path.join(checkpoint_dir, f"fold_{fold_num}"),
+            save_every_n_epoch=save_every_n_epoch
+        )
+        fold_accuracies.append(best_acc)
+
+        print(f"\nFold {fold_num} Best Accuracy: {best_acc:.4f}\n")
+
+    mean_acc = np.mean(fold_accuracies)
+    std_acc = np.std(fold_accuracies)
+
+    print(f"\n{'='*80}")
+    print("FINAL 5-FOLD CROSS-VALIDATION RESULTS")
+    print(f"Fold Accuracies: {fold_accuracies}")
+    print(f"Mean Accuracy: {mean_acc:.4f} ± {std_acc:.4f}")
+    print(f"{'='*80}\n")
+
+    # Save results
+    results_path = os.path.join(checkpoint_dir, "5fold_cv_results.json")
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    with open(results_path, 'w') as f:
+        json.dump({
+            'fold_accuracies': fold_accuracies,
+            'mean_accuracy': mean_acc,
+            'std_accuracy': std_acc
+        }, f, indent=2)
+    print(f"Results saved to {results_path}")
+
+    return fold_accuracies, mean_acc

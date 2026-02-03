@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from src.data.download import download_clean
 from src.data.augment import create_augmented_datasets, create_log_mel, data_treatment_testing
 from src.models.cnn import CNN
-from src.models.train import train_cnn
+from src.models.train import train_k_fold_cnn, train_cnn
 from src.models.predict import predict_with_overlapping_patches, predict_top_k, predict_file, load_model
 from src.config.config import sample_rate, cnn_input_length, esc50_labels
 
@@ -31,22 +31,36 @@ def main():
     augment_parser.set_defaults(func=cmd_augment)
 
     preprocess_parser = subparsers.add_parser('preprocess', help='Preprocess audio dataset')
-    preprocess_parser.add_argument('--input-dir', type=str, default="data/audio/0", help='Input audio directory')
-    preprocess_parser.add_argument('--output-dir', type=str, default="data/audio", help='Output directory for preprocessed data')
+    preprocess_parser.add_argument('--input-dir', type=str, default="data/audio", help='Input audio directory')
+    preprocess_parser.add_argument('--output-dir', type=str, default="data/preprocessed", help='Output directory for preprocessed data')
     preprocess_parser.set_defaults(func=cmd_preprocess)
 
     train_parser = subparsers.add_parser('train', help='Train model')
     train_parser.add_argument('--audio-dir', type=str, help='Path to training audio directory')
-    train_parser.add_argument('output-dir', type=str, help='Path to save preprocessed data')
+    train_parser.add_argument('--output-dir', type=str, help='Path to save preprocessed data')
     train_parser.add_argument('--X-path', type=str, help='Path to preprocessed X.npy')
     train_parser.add_argument('--y-path', type=str, help='Path to preprocessed y.npy')
     train_parser.add_argument('--epochs', type=int, default=100, help='Number of epochs (default: 100)')
     train_parser.add_argument('--batch-size', type=int, default=100, help='Batch size (default: 100)')
-    train_parser.add_argument('--lr', type=float, default=0.01, help='Learning rate (default: 0.01)')
+    train_parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (default: 0.01)')
     train_parser.add_argument('--sample-fraction', type=float, default=1/8, help='Fraction of samples per epoch (default: 1/8)')
     train_parser.add_argument('--checkpoint-dir', type=str, default='models/checkpoints', help='Checkpoint directory')
     train_parser.add_argument('--save-every', type=int, default=1, help='Save checkpoint every N epochs')
     train_parser.set_defaults(func=cmd_train)
+
+    train_parser = subparsers.add_parser('train_cv', help='Train model with k_fold CV')
+    train_parser.add_argument('--audio-dir', type=str, help='Path to training audio directory')
+    train_parser.add_argument('--output-dir', type=str, help='Path to save preprocessed data')
+    train_parser.add_argument('--X-path', type=str, help='Path to preprocessed X.npy')
+    train_parser.add_argument('--y-path', type=str, help='Path to preprocessed y.npy')
+    train_parser.add_argument('--epochs', type=int, default=100, help='Number of epochs (default: 100)')
+    train_parser.add_argument('--batch-size', type=int, default=100, help='Batch size (default: 100)')
+    train_parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (default: 0.01)')
+    train_parser.add_argument('--k_fold', type=int, default=5, help='Number of folds for Cross-Validation (default: 5)')
+    train_parser.add_argument('--sample-fraction', type=float, default=1/8, help='Fraction of samples per epoch (default: 1/8)')
+    train_parser.add_argument('--checkpoint-dir', type=str, default='models/checkpoints', help='Checkpoint directory')
+    train_parser.add_argument('--save-every', type=int, default=1, help='Save checkpoint every N epochs')
+    train_parser.set_defaults(func=cmd_train_cv)
 
     resume_parser = subparsers.add_parser('resume', help='Resume training from checkpoint')
     resume_parser.add_argument('--resume-from', type=str, required=True, help='Path to checkpoint file')
@@ -92,8 +106,53 @@ def cmd_preprocess(args):
     print(f"Dataset size: {len(X)} samples, {len(np.unique(y))} classes")
     print(f"Saved to {args.output_dir}")
 
+def cmd_train(args): 
+    device = "cuda" if torch.cuda.is_available() else "cpu" 
+    print(f"Using device: {device}") 
 
-def cmd_train(args):
+    X_path = args.X_path or "data/preprocessed/X.npy" 
+    y_path = args.y_path or "data/preprocessed/y.npy" 
+    
+    if os.path.exists(X_path) and os.path.exists(y_path): 
+        print("Loading existing processed data...") 
+        X = np.load(X_path, allow_pickle=True) 
+        y = np.load(y_path) 
+    else: 
+        print("Processing audio data...") 
+        audio_training_path = args.audio_dir or "data/audio/0" 
+        directories = os.listdir(audio_training_path) 
+
+        if len(directories) == 1 and args.augment: 
+            print("Creating augmented datasets...") 
+            create_augmented_datasets(audio_training_path, "data/audio") 
+
+        print("Creating log-mel spectrograms...") 
+        X, y = create_log_mel(args.audio_dir or "data/audio", args.output_dir or "data/preprocessed") 
+            
+    print(f"Dataset size: {len(X)} samples, {len(np.unique(y))} classes") 
+        
+    X_train, X_val, y_train, y_val = train_test_split( X, y, test_size=0.2, random_state=42, stratify=y ) 
+    print(f"Train: {len(X_train)}, Val: {len(X_val)}") 
+    model = CNN(n_classes=len(np.unique(y))) 
+    best_val_acc = train_cnn( 
+        model, 
+        X_train, y_train, 
+        X_val, y_val, 
+        epochs=args.epochs, 
+        batch_size=args.batch_size, 
+        lr=args.lr, 
+        fold_num=0,
+        device=device, 
+        use_all_patches=True, 
+        samples_per_epoch_fraction=args.sample_fraction, 
+        checkpoint_dir=args.checkpoint_dir, 
+        save_every_n_epoch=args.save_every, 
+        resume_from=None ) 
+    
+    print(f"\nTraining complete! Best validation accuracy: {best_val_acc:.4f}") 
+    return best_val_acc
+
+def cmd_train_cv(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     
@@ -125,23 +184,23 @@ def cmd_train(args):
     
     model = CNN(n_classes=len(np.unique(y)))
     
-    best_val_acc = train_cnn(
-        model,
-        X_train, y_train,
-        X_val, y_val,
+    fold_accs, mean_acc = train_k_fold_cnn(
+        model_class=lambda: CNN(),
+        X=X,
+        y=y,
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.lr,
+        k_fold=args.k_fold,
         device=device,
         use_all_patches=True,
         samples_per_epoch_fraction=args.sample_fraction,
         checkpoint_dir=args.checkpoint_dir,
-        save_every_n_epoch=args.save_every,
-        resume_from=None
+        save_every_n_epoch=args.save_every
     )
     
-    print(f"\nTraining complete! Best validation accuracy: {best_val_acc:.4f}")
-    return best_val_acc
+    print(f"\nTraining complete! Mean validation accuracy: {mean_acc:.4f}")
+    return mean_acc
 
 def cmd_resume(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -215,6 +274,5 @@ def cmd_predict(args):
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
 
 main()
