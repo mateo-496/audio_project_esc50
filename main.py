@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from src.data.download import download_clean
 from src.data.augment import create_augmented_datasets, create_log_mel, data_treatment_testing
 from src.models.cnn import CNN
-from src.models.train import train_k_fold_cnn, train_cnn
+from src.models.traincnn import train_k_fold_cnn, train_cnn
 from src.models.predict import predict_with_overlapping_patches, predict_top_k, predict_file, load_model
 from src.config.config import sample_rate, cnn_input_length, esc50_labels
 
