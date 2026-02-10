@@ -2,8 +2,7 @@ data/
 *.npy
 *.wav
 
-models/checkpoints
-models/saved
+models/
 *.pt
 *.pth
 
@@ -27,6 +26,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+test/
 
 .dockerignore
 Dockerfile

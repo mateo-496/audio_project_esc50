@@ -22,7 +22,7 @@ app = FastAPI(
 
 model = None
 device = None
-model_path="models/saved/model30012026_74valacc.pt"
+model_path="models/cnn/saved/final_model.pt"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = load_model(model_path, device)
 
