@@ -6,7 +6,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from src.models.predict import predict_with_overlapping_patches
-from src.data.datasets import FullTFPatchesDataset, RandomPatchDataset
+from src.data.dataset import FullTFPatchesDataset, RandomPatchDataset
 
 def train_cnn(
     model,
