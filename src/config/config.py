@@ -4,13 +4,24 @@ from pathlib import Path
 from typing import List
 
 @dataclass(frozen=True)
-class AudioParameters:
+class ProcessingConfig:
+    audio_path: Path = Path("data/audio/0")
+    augmented_path: Path = Path("data/audio/")
+    log_mel_path: Path = Path("data/preprocessed")
     n_bands: int = 128
     n_mels: int = 128
     frame_size: int = 1024
     hop_size: int = 1024
     sample_rate: int = 44100
     fft_size: int = 8192
+    target_seconds: float = 5.0
+    augmentation_probability_lists = [
+            [0.0, 1.0, 1.0], [1.0, 1.0, 0.0], [1.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0], [0.5, 0.5, 0.5],
+        ]
+    time_stretch_rates = [0.81, 0.93, 1.07, 1.23]
+    pitch_shift_rates = [-3.5, -2.5, -2, -1, 1, 2.5, 3, 3.5]
+    drc_types = ["radio", "filmstandard", "musicstandard", "speech"]
 
 @dataclass(frozen=True)
 class DatasetConfig:
@@ -38,7 +49,7 @@ class DownloadConfig:
     audio_src_dir = os.path.join(extracted_dir, "audio")
     paths_to_delete: List[str] = field(default_factory=lambda: [
         ".gitignore", "esc50.gif", "LICENSE", "pytest.ini", "README.md",
-        "requirements.txt", "tests", "meta", ".github", ".circleci"
+        "requirements.txt", "tests", "meta", ".github", ".circleci", "ESC-50-master"
     ])
 
     def __post_init__(self):
